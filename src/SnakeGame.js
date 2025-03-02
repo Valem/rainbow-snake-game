@@ -1,9 +1,49 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 const SnakeGame = () => {
+  // Debug logging for screen size
+  const [screenInfo, setScreenInfo] = useState({
+    width: window.innerWidth,
+    height: window.innerHeight,
+    gameSize: 0
+  });
+
+  // Update screen info on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setScreenInfo({
+        width: window.innerWidth,
+        height: window.innerHeight,
+        gameSize: calculateGameSize()
+      });
+    };
+    
+    // Initial calculation
+    handleResize();
+    
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Calculate appropriate game size based on screen
+  const calculateGameSize = () => {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    console.log(`Screen dimensions: ${screenWidth}x${screenHeight}`);
+    
+    // For mobile devices (width < 768px), use a higher percentage of screen width
+    if (screenWidth < 768) {
+      // On mobile, use 95% of screen width but cap at 80% of height
+      return Math.min(screenWidth * 0.95, screenHeight * 0.8);
+    }
+    
+    // For larger screens, use a more balanced approach
+    return Math.min(screenWidth * 0.8, screenHeight * 0.6);
+  };
+
   // Game constants
   const gridSize = 20;
-  const cellSize = 20;
   const initialSpeed = 165; // 10% slower than original 150
   
   // Game state
@@ -187,14 +227,75 @@ const SnakeGame = () => {
     }
   }, []);
   
-  // Set up keyboard event listeners
+  // Handle touch swipe for mobile
+  const handleTouchSwipe = useCallback(() => {
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchEndX = 0;
+    let touchEndY = 0;
+    
+    const handleTouchStart = (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+      touchStartY = e.changedTouches[0].screenY;
+    };
+    
+    const handleTouchEnd = (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      handleSwipe();
+    };
+    
+    const handleSwipe = () => {
+      const state = gameStateRef.current;
+      if (state.gameOver || state.paused) return;
+      
+      const diffX = touchEndX - touchStartX;
+      const diffY = touchEndY - touchStartY;
+      
+      // Determine if the swipe was horizontal or vertical
+      if (Math.abs(diffX) > Math.abs(diffY)) {
+        // Horizontal swipe
+        if (diffX > 50 && state.direction !== 'LEFT') {
+          handleDirectionChange('RIGHT');
+        } else if (diffX < -50 && state.direction !== 'RIGHT') {
+          handleDirectionChange('LEFT');
+        }
+      } else {
+        // Vertical swipe
+        if (diffY > 50 && state.direction !== 'UP') {
+          handleDirectionChange('DOWN');
+        } else if (diffY < -50 && state.direction !== 'DOWN') {
+          handleDirectionChange('UP');
+        }
+      }
+    };
+    
+    return { handleTouchStart, handleTouchEnd };
+  }, []);
+  
+  // Set up keyboard and touch event listeners
   useEffect(() => {
-    console.log('Setting up keyboard event listeners');
+    console.log('Setting up keyboard and touch event listeners');
     window.addEventListener('keydown', handleKeyPress);
+    
+    // Add touch event listeners for mobile
+    const { handleTouchStart, handleTouchEnd } = handleTouchSwipe();
+    const gameArea = document.getElementById('game-area');
+    
+    if (gameArea) {
+      gameArea.addEventListener('touchstart', handleTouchStart);
+      gameArea.addEventListener('touchend', handleTouchEnd);
+    }
+    
     return () => {
       window.removeEventListener('keydown', handleKeyPress);
+      
+      if (gameArea) {
+        gameArea.removeEventListener('touchstart', handleTouchStart);
+        gameArea.removeEventListener('touchend', handleTouchEnd);
+      }
     };
-  }, [handleKeyPress]);
+  }, [handleKeyPress, handleTouchSwipe]);
   
   // Update level based on score
   useEffect(() => {
@@ -394,29 +495,35 @@ const SnakeGame = () => {
       transition: `left ${transitionDuration} linear, top ${transitionDuration} linear`
     };
   };
+  // Calculate responsive cell size
+  const responsiveCellSize = screenInfo.gameSize / gridSize;
   
   return (
     <div className="flex flex-col items-center justify-center p-4 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-4">Rainbow Snake Game</h1>
+      
+      {/* Debug info removed */}
       
       <div className="mb-4 flex justify-between w-full max-w-md">
         <p className="text-xl">Score: {score}</p>
         <p className="text-xl">Level: {level}</p>
       </div>
       
-      <div 
+      <div
+        id="game-area"
         className="relative border-2 border-gray-800 bg-black"
-        style={{ 
-          width: gridSize * cellSize, 
-          height: gridSize * cellSize 
+        style={{
+          width: gridSize * responsiveCellSize,
+          height: gridSize * responsiveCellSize
         }}
       >
         {/* Game start overlay */}
         {!gameStarted && !gameOver && (
           <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
             <div className="text-white text-center">
-              <p className="text-xl mb-4">Press any arrow key to start</p>
-              <p>Use arrow keys to control the snake</p>
+              <p className="text-xl mb-4">Press any arrow key or button to start</p>
+              <p>Use arrow keys or buttons to control the snake</p>
+              <p className="mt-2">On mobile, you can also swipe to change direction</p>
               <p className="mt-2">Press P to pause, X to end game</p>
             </div>
           </div>
@@ -471,26 +578,26 @@ const SnakeGame = () => {
         )}
         
         {/* Food */}
-        <div 
+        <div
           className="absolute rounded-full bg-red-500"
-          style={{ 
-            width: cellSize - 2, 
-            height: cellSize - 2, 
-            left: food.x * cellSize + 1, 
-            top: food.y * cellSize + 1 
+          style={{
+            width: responsiveCellSize - 2,
+            height: responsiveCellSize - 2,
+            left: food.x * responsiveCellSize + 1,
+            top: food.y * responsiveCellSize + 1
           }}
         />
         
         {/* Snake */}
         {snake.map((segment, index) => (
-          <div 
+          <div
             key={index}
             className="absolute rounded"
-            style={{ 
-              width: cellSize - 2, 
-              height: cellSize - 2, 
-              left: segment.x * cellSize + 1, 
-              top: segment.y * cellSize + 1,
+            style={{
+              width: responsiveCellSize - 2,
+              height: responsiveCellSize - 2,
+              left: segment.x * responsiveCellSize + 1,
+              top: segment.y * responsiveCellSize + 1,
               backgroundColor: getSegmentColor(index),
               ...getTransitionStyle()
             }}
@@ -521,48 +628,48 @@ const SnakeGame = () => {
       {/* Controls for both desktop and mobile */}
       <div className="mt-6">
         {/* Game action buttons */}
-        <div className="flex justify-center space-x-4 mb-4">
-          <button 
+        <div className="flex flex-wrap justify-center space-x-2 sm:space-x-4 mb-4">
+          <button
             onClick={togglePause}
-            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+            className="px-3 sm:px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm sm:text-base"
           >
             {paused ? "Resume (P)" : "Pause (P)"}
           </button>
-          <button 
+          <button
             onClick={endGame}
-            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm sm:text-base"
           >
             End Game (X)
           </button>
         </div>
         
         {/* Direction controls (for all devices) */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 w-full max-w-xs mx-auto">
           <div className="col-span-3 flex justify-center mb-2">
-            <button 
+            <button
               onClick={() => handleDirectionChange('UP')}
-              className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+              className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
             >
               ▲
             </button>
           </div>
-          <button 
+          <button
             onClick={() => handleDirectionChange('LEFT')}
-            className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+            className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
           >
             ◀
           </button>
           <div />
-          <button 
+          <button
             onClick={() => handleDirectionChange('RIGHT')}
-            className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+            className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
           >
             ▶
           </button>
           <div className="col-span-3 flex justify-center mt-2">
-            <button 
+            <button
               onClick={() => handleDirectionChange('DOWN')}
-              className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+              className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
             >
               ▼
             </button>
