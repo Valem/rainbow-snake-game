@@ -34,12 +34,12 @@ const SnakeGame = () => {
     
     // For mobile devices (width < 768px), use a higher percentage of screen width
     if (screenWidth < 768) {
-      // On mobile, use 95% of screen width but cap at 80% of height
-      return Math.min(screenWidth * 0.95, screenHeight * 0.8);
+      // On mobile, use 95% of screen width but cap at 65% of height (reduced from 80%)
+      return Math.min(screenWidth * 0.95, screenHeight * 0.65);
     }
     
-    // For larger screens, use a more balanced approach
-    return Math.min(screenWidth * 0.8, screenHeight * 0.6);
+    // For larger screens, use a more balanced approach with reduced height percentage
+    return Math.min(screenWidth * 0.8, screenHeight * 0.5); // Reduced from 0.6
   };
 
   // Game constants
@@ -499,12 +499,12 @@ const SnakeGame = () => {
   const responsiveCellSize = screenInfo.gameSize / gridSize;
   
   return (
-    <div className="flex flex-col items-center justify-center p-4 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4">Rainbow Snake Game</h1>
+    <div className="flex flex-col items-center justify-center p-2 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-2">Rainbow Snake Game</h1>
       
       {/* Debug info removed */}
       
-      <div className="mb-4 flex justify-between w-full max-w-md">
+      <div className="mb-2 flex justify-between w-full max-w-md">
         <p className="text-xl">Score: {score}</p>
         <p className="text-xl">Level: {level}</p>
       </div>
@@ -607,26 +607,8 @@ const SnakeGame = () => {
       
       {/* No game controls here anymore - they are at the bottom */}
       
-      {/* High Scores */}
-      <div className="mt-8 w-full max-w-md">
-        <h2 className="text-xl font-bold mb-2">High Scores</h2>
-        <div className="bg-gray-100 p-4 rounded">
-          {highScores.length > 0 ? (
-            <ol className="list-decimal list-inside">
-              {highScores.map((highScore, index) => (
-                <li key={index} className="mb-1">
-                  {highScore.name}: {highScore.score} {highScore.score === 1 ? 'point' : 'points'}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p>No high scores yet. Play to set a record!</p>
-          )}
-        </div>
-      </div>
-      
       {/* Controls for both desktop and mobile */}
-      <div className="mt-6">
+      <div className="mt-4">
         {/* Game action buttons */}
         <div className="flex flex-wrap justify-center space-x-2 sm:space-x-4 mb-4">
           <button
@@ -674,6 +656,24 @@ const SnakeGame = () => {
               ▼
             </button>
           </div>
+        </div>
+      </div>
+      
+      {/* High Scores */}
+      <div className="mt-3 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-2">High Scores</h2>
+        <div className="bg-gray-100 p-3 rounded">
+          {highScores.length > 0 ? (
+            <ol className="list-decimal list-inside">
+              {highScores.map((highScore, index) => (
+                <li key={index} className="mb-1">
+                  {highScore.name}: {highScore.score} {highScore.score === 1 ? 'point' : 'points'}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No high scores yet. Play to set a record!</p>
+          )}
         </div>
       </div>
     </div>
