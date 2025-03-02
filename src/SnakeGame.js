@@ -27,20 +27,26 @@ const SnakeGame = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Calculate appropriate game size based on screen
+  // Calculate appropriate game size based on screen - Optimized for larger controls
   const calculateGameSize = () => {
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     console.log(`Screen dimensions: ${screenWidth}x${screenHeight}`);
     
-    // For mobile devices (width < 768px), use a higher percentage of screen width
+    // For mobile devices (width < 768px), optimize for larger controls
     if (screenWidth < 768) {
-      // On mobile, use 95% of screen width but cap at 65% of height (reduced from 80%)
-      return Math.min(screenWidth * 0.95, screenHeight * 0.65);
+      // On mobile, use 90% of screen width but cap at 50% of height
+      // This leaves more room for the larger controls below
+      return Math.min(screenWidth * 0.90, screenHeight * 0.50);
     }
     
-    // For larger screens, use a more balanced approach with reduced height percentage
-    return Math.min(screenWidth * 0.8, screenHeight * 0.5); // Reduced from 0.6
+    // For tablets (width < 1024px)
+    if (screenWidth < 1024) {
+      return Math.min(screenWidth * 0.85, screenHeight * 0.55);
+    }
+    
+    // For larger screens, use a more balanced approach
+    return Math.min(screenWidth * 0.8, screenHeight * 0.5);
   };
 
   // Game constants
@@ -684,55 +690,69 @@ const SnakeGame = () => {
       
       {/* Controls for both desktop and mobile */}
       <div className="mt-4">
-        {/* Game action buttons */}
-        <div className="flex flex-wrap justify-center space-x-2 sm:space-x-4 mb-4">
+        {/* Game action buttons - MUCH larger for smartphone usage */}
+        <div className="flex justify-between mb-8 w-full max-w-md mx-auto">
           <button
             onClick={togglePause}
-            className="px-3 sm:px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm sm:text-base"
+            className="flex-1 mx-2 py-5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-yellow-400"
+            aria-label="Pause or Resume Game"
           >
             {paused ? "Resume (P)" : "Pause (P)"}
           </button>
           <button
             onClick={endGame}
-            className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm sm:text-base"
+            className="flex-1 mx-2 py-5 bg-red-500 hover:bg-red-600 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-red-400"
+            aria-label="End Game"
           >
             End Game (X)
           </button>
           <button
             onClick={() => setSoundEnabled(prev => !prev)}
-            className={`px-3 sm:px-4 py-2 ${soundEnabled ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-500 hover:bg-gray-600'} text-white rounded text-sm sm:text-base`}
+            className={`flex-1 mx-2 py-5 ${soundEnabled ? 'bg-blue-500 hover:bg-blue-600 border-blue-400' : 'bg-gray-500 hover:bg-gray-600 border-gray-400'} text-white rounded-xl shadow-lg text-lg font-bold border-4`}
+            aria-label="Toggle Sound"
           >
-            {soundEnabled ? "Sound: On" : "Sound: Off"}
+            Sound: {soundEnabled ? "On" : "Off"}
           </button>
         </div>
         
-        {/* Direction controls (for all devices) */}
-        <div className="grid grid-cols-3 gap-2 w-full max-w-xs mx-auto">
-          <div className="col-span-3 flex justify-center mb-2">
+        {/* Direction controls - MUCH larger for smartphone usage */}
+        <div className="w-full max-w-md mx-auto mb-10">
+          {/* Top row - UP button */}
+          <div className="flex justify-center mb-5">
             <button
               onClick={() => handleDirectionChange('UP')}
-              className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              aria-label="Move Up"
             >
               ▲
             </button>
           </div>
-          <button
-            onClick={() => handleDirectionChange('LEFT')}
-            className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
-          >
-            ◀
-          </button>
-          <div />
-          <button
-            onClick={() => handleDirectionChange('RIGHT')}
-            className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
-          >
-            ▶
-          </button>
-          <div className="col-span-3 flex justify-center mt-2">
+          
+          {/* Middle row - LEFT, RIGHT buttons */}
+          <div className="flex justify-between mb-5">
+            <button
+              onClick={() => handleDirectionChange('LEFT')}
+              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              aria-label="Move Left"
+            >
+              ◀
+            </button>
+            
+            <button
+              onClick={() => handleDirectionChange('RIGHT')}
+              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              aria-label="Move Right"
+            >
+              ▶
+            </button>
+          </div>
+          
+          {/* Bottom row - DOWN button */}
+          <div className="flex justify-center">
             <button
               onClick={() => handleDirectionChange('DOWN')}
-              className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              aria-label="Move Down"
             >
               ▼
             </button>
