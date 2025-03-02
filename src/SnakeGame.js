@@ -691,7 +691,7 @@ const SnakeGame = () => {
       {/* Controls for both desktop and mobile */}
       <div className="mt-4">
         {/* Game action buttons - MUCH larger for smartphone usage */}
-        <div className="flex justify-between mb-8 w-full max-w-md mx-auto">
+        <div className="flex justify-between mb-10 w-full max-w-md mx-auto">
           <button
             onClick={togglePause}
             className="flex-1 mx-2 py-5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-yellow-400"
@@ -716,7 +716,7 @@ const SnakeGame = () => {
         </div>
         
         {/* Direction controls - MUCH larger for smartphone usage */}
-        <div className="w-full max-w-md mx-auto mb-10">
+        <div className="w-full max-w-md mx-auto mb-10 mt-6">
           {/* Top row - UP button */}
           <div className="flex justify-center mb-5">
             <button
