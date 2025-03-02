@@ -316,44 +316,72 @@ const SnakeGame = () => {
     let touchStartY = 0;
     let touchEndX = 0;
     let touchEndY = 0;
+    let touchStartTime = 0;
     
     const handleTouchStart = (e) => {
       touchStartX = e.changedTouches[0].screenX;
       touchStartY = e.changedTouches[0].screenY;
+      touchStartTime = Date.now();
+      
+      // Prevent scrolling while touching the game area
+      e.preventDefault();
+    };
+    
+    const handleTouchMove = (e) => {
+      // Update position continuously for responsive feedback
+      touchEndX = e.changedTouches[0].screenX;
+      touchEndY = e.changedTouches[0].screenY;
+      
+      // If we've moved enough, consider processing the swipe
+      const diffX = touchEndX - touchStartX;
+      const diffY = touchEndY - touchStartY;
+      
+      if (Math.abs(diffX) > 30 || Math.abs(diffY) > 30) {
+        handleSwipe(false); // Process swipe but don't force (allows continuous direction changes)
+      }
+      
+      // Prevent scrolling
+      e.preventDefault();
     };
     
     const handleTouchEnd = (e) => {
       touchEndX = e.changedTouches[0].screenX;
       touchEndY = e.changedTouches[0].screenY;
-      handleSwipe();
+      handleSwipe(true); // Final swipe processing
     };
     
-    const handleSwipe = () => {
+    const handleSwipe = (isFinal) => {
       const state = gameStateRef.current;
       if (state.gameOver || state.paused) return;
       
       const diffX = touchEndX - touchStartX;
       const diffY = touchEndY - touchStartY;
+      // Calculate swipe speed based on distance and time
+      // const swipeDistance = Math.sqrt(diffX * diffX + diffY * diffY);
+      const swipeTime = Date.now() - touchStartTime;
+      
+      // More responsive - lower threshold for short/fast swipes
+      const threshold = swipeTime < 300 ? 30 : 40;
       
       // Determine if the swipe was horizontal or vertical
       if (Math.abs(diffX) > Math.abs(diffY)) {
         // Horizontal swipe
-        if (diffX > 50 && state.direction !== 'LEFT') {
+        if (diffX > threshold && state.direction !== 'LEFT') {
           handleDirectionChange('RIGHT');
-        } else if (diffX < -50 && state.direction !== 'RIGHT') {
+        } else if (diffX < -threshold && state.direction !== 'RIGHT') {
           handleDirectionChange('LEFT');
         }
       } else {
         // Vertical swipe
-        if (diffY > 50 && state.direction !== 'UP') {
+        if (diffY > threshold && state.direction !== 'UP') {
           handleDirectionChange('DOWN');
-        } else if (diffY < -50 && state.direction !== 'DOWN') {
+        } else if (diffY < -threshold && state.direction !== 'DOWN') {
           handleDirectionChange('UP');
         }
       }
     };
     
-    return { handleTouchStart, handleTouchEnd };
+    return { handleTouchStart, handleTouchMove, handleTouchEnd };
   }, [handleDirectionChange]);
   
   // Set up keyboard and touch event listeners
@@ -362,11 +390,12 @@ const SnakeGame = () => {
     window.addEventListener('keydown', handleKeyPress);
     
     // Add touch event listeners for mobile
-    const { handleTouchStart, handleTouchEnd } = handleTouchSwipe();
+    const { handleTouchStart, handleTouchMove, handleTouchEnd } = handleTouchSwipe();
     const gameArea = document.getElementById('game-area');
     
     if (gameArea) {
-      gameArea.addEventListener('touchstart', handleTouchStart);
+      gameArea.addEventListener('touchstart', handleTouchStart, { passive: false });
+      gameArea.addEventListener('touchmove', handleTouchMove, { passive: false });
       gameArea.addEventListener('touchend', handleTouchEnd);
     }
     
@@ -375,6 +404,7 @@ const SnakeGame = () => {
       
       if (gameArea) {
         gameArea.removeEventListener('touchstart', handleTouchStart);
+        gameArea.removeEventListener('touchmove', handleTouchMove);
         gameArea.removeEventListener('touchend', handleTouchEnd);
       }
     };
@@ -694,21 +724,21 @@ const SnakeGame = () => {
         <div className="flex justify-between mb-10 w-full max-w-md mx-auto">
           <button
             onClick={togglePause}
-            className="flex-1 mx-2 py-5 bg-yellow-500 hover:bg-yellow-600 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-yellow-400"
+            className="flex-1 mx-2 py- bg-yellow-500 hover:bg-yellow-600 active:bg-yellow-700 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-yellow-400 transition-colors duration-75"
             aria-label="Pause or Resume Game"
           >
             {paused ? "Resume (P)" : "Pause (P)"}
           </button>
           <button
             onClick={endGame}
-            className="flex-1 mx-2 py-5 bg-red-500 hover:bg-red-600 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-red-400"
+            className="flex-1 mx-2 py-6 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-xl shadow-lg text-lg font-bold border-4 border-red-400 transition-colors duration-75"
             aria-label="End Game"
           >
             End Game (X)
           </button>
           <button
             onClick={() => setSoundEnabled(prev => !prev)}
-            className={`flex-1 mx-2 py-5 ${soundEnabled ? 'bg-blue-500 hover:bg-blue-600 border-blue-400' : 'bg-gray-500 hover:bg-gray-600 border-gray-400'} text-white rounded-xl shadow-lg text-lg font-bold border-4`}
+            className={`flex-1 mx-2 py-6 ${soundEnabled ? 'bg-blue-500 hover:bg-blue-600 active:bg-blue-700 border-blue-400' : 'bg-gray-500 hover:bg-gray-600 active:bg-gray-700 border-gray-400'} text-white rounded-xl shadow-lg text-lg font-bold border-4 transition-colors duration-75`}
             aria-label="Toggle Sound"
           >
             Sound: {soundEnabled ? "On" : "Off"}
@@ -721,7 +751,8 @@ const SnakeGame = () => {
           <div className="flex justify-center mb-5">
             <button
               onClick={() => handleDirectionChange('UP')}
-              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              className="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-black rounded-full flex items-center justify-center font-bold shadow-lg border-4 border-gray-300 transition-colors duration-75 z-10"
+              style={{ width: '40px', height: '40px', fontSize: '20px' }}
               aria-label="Move Up"
             >
               ▲
@@ -732,7 +763,8 @@ const SnakeGame = () => {
           <div className="flex justify-between mb-5">
             <button
               onClick={() => handleDirectionChange('LEFT')}
-              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              className="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-black rounded-full flex items-center justify-center font-bold shadow-lg border-4 border-gray-300 transition-colors duration-75 z-10"
+              style={{ width: '40px', height: '40px', fontSize: '20px' }}
               aria-label="Move Left"
             >
               ◀
@@ -740,7 +772,8 @@ const SnakeGame = () => {
             
             <button
               onClick={() => handleDirectionChange('RIGHT')}
-              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              className="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-black rounded-full flex items-center justify-center font-bold shadow-lg border-4 border-gray-300 transition-colors duration-75 z-10"
+              style={{ width: '40px', height: '40px', fontSize: '20px' }}
               aria-label="Move Right"
             >
               ▶
@@ -751,7 +784,8 @@ const SnakeGame = () => {
           <div className="flex justify-center">
             <button
               onClick={() => handleDirectionChange('DOWN')}
-              className="w-28 h-28 sm:w-32 sm:h-32 bg-gray-200 hover:bg-gray-300 text-black rounded-full flex items-center justify-center text-5xl font-bold shadow-lg border-4 border-gray-300"
+              className="bg-gray-200 hover:bg-gray-300 active:bg-gray-400 text-black rounded-full flex items-center justify-center font-bold shadow-lg border-4 border-gray-300 transition-colors duration-75 z-10"
+              style={{ width: '40px', height: '40px', fontSize: '20px' }}
               aria-label="Move Down"
             >
               ▼
