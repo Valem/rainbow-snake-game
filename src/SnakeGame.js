@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { animated, useSpring } from '@react-spring/web';
 
 const SnakeGame = () => {
   // Debug logging for screen size
@@ -45,7 +46,6 @@ const SnakeGame = () => {
   // Game constants
   const gridSize = 20;
   const initialSpeed = 165; // 10% slower than original 150
-  
   // Game state
   const [snake, setSnake] = useState([{ x: 10, y: 10 }]);
   const [food, setFood] = useState({ x: 5, y: 5 });
@@ -59,6 +59,52 @@ const SnakeGame = () => {
   const [level, setLevel] = useState(1);
   const [playerName, setPlayerName] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
+  const [showLevelUpAnimation, setShowLevelUpAnimation] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  
+  // Audio references
+  const eatSoundRef = useRef(null);
+  const levelUpSoundRef = useRef(null);
+  const gameOverSoundRef = useRef(null);
+  const gameStartSoundRef = useRef(null);
+  
+  // Initialize audio objects
+  useEffect(() => {
+    eatSoundRef.current = new Audio('/sounds/eat.mp3');
+    eatSoundRef.current.volume = 0.3;
+    
+    levelUpSoundRef.current = new Audio('/sounds/level-up.mp3');
+    levelUpSoundRef.current.volume = 0.5;
+    
+    gameOverSoundRef.current = new Audio('/sounds/game-over.mp3');
+    gameOverSoundRef.current.volume = 0.4;
+    
+    gameStartSoundRef.current = new Audio('/sounds/game-start.mp3');
+    gameStartSoundRef.current.volume = 0.4;
+  }, []);
+  
+  // Function to play sounds
+  const playSound = useCallback((soundRef) => {
+    if (soundEnabled && soundRef.current) {
+      // Reset the audio to the beginning if it's already playing
+      soundRef.current.currentTime = 0;
+      soundRef.current.play().catch(error => {
+        console.log('Audio play error:', error);
+      });
+    }
+  }, [soundEnabled]);
+  
+  // Level-up animation spring
+  const levelUpAnimation = useSpring({
+    opacity: showLevelUpAnimation ? 1 : 0,
+    transform: showLevelUpAnimation ? 'scale(1.2)' : 'scale(0.8)',
+    config: { tension: 300, friction: 10 },
+    onRest: () => {
+      if (showLevelUpAnimation) {
+        setTimeout(() => setShowLevelUpAnimation(false), 1000);
+      }
+    }
+  });
   
   // Note: We're using CSS transitions for smooth animation instead of a separate animation speed
   
@@ -156,6 +202,35 @@ const SnakeGame = () => {
     return Math.round(initialSpeed - reduction);
   }, [initialSpeed]);
   
+  // Handle direction change (for mobile controls)
+  const handleDirectionChange = useCallback((newDir) => {
+    console.log('Mobile control clicked:', newDir);
+    const state = gameStateRef.current;
+    
+    if (!state.gameStarted && !state.gameOver) {
+      console.log('Starting game with mobile control');
+      setGameStarted(true);
+      playSound(gameStartSoundRef);
+    }
+    
+    if (state.gameOver || state.paused) {
+      console.log('Game over or paused, ignoring mobile control');
+      return;
+    }
+    
+    if (
+      (newDir === 'UP' && state.direction !== 'DOWN') ||
+      (newDir === 'DOWN' && state.direction !== 'UP') ||
+      (newDir === 'LEFT' && state.direction !== 'RIGHT') ||
+      (newDir === 'RIGHT' && state.direction !== 'LEFT')
+    ) {
+      console.log('Changing direction to', newDir);
+      setDirection(newDir);
+    } else {
+      console.log('Invalid direction change attempted:', newDir, 'current:', state.direction);
+    }
+  }, [playSound]);
+  
   // Handle keyboard controls
   const handleKeyPress = useCallback((e) => {
     console.log('Key pressed:', e.key);
@@ -167,6 +242,7 @@ const SnakeGame = () => {
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
         console.log('Starting game with arrow key:', e.key);
         setGameStarted(true);
+        playSound(gameStartSoundRef);
       }
     }
     
@@ -225,9 +301,10 @@ const SnakeGame = () => {
       default:
         break;
     }
-  }, []);
+  }, [playSound]);
   
   // Handle touch swipe for mobile
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleTouchSwipe = useCallback(() => {
     let touchStartX = 0;
     let touchStartY = 0;
@@ -271,7 +348,7 @@ const SnakeGame = () => {
     };
     
     return { handleTouchStart, handleTouchEnd };
-  }, []);
+  }, [handleDirectionChange]);
   
   // Set up keyboard and touch event listeners
   useEffect(() => {
@@ -295,7 +372,7 @@ const SnakeGame = () => {
         gameArea.removeEventListener('touchend', handleTouchEnd);
       }
     };
-  }, [handleKeyPress, handleTouchSwipe]);
+  }, [handleKeyPress, handleTouchSwipe, playSound]);
   
   // Update level based on score
   useEffect(() => {
@@ -305,8 +382,17 @@ const SnakeGame = () => {
     if (clampedLevel !== level) {
       setLevel(clampedLevel);
       setSpeed(calculateSpeed(clampedLevel));
+      
+      // Don't play level up sound on first level (game start)
+      if (level > 1 || clampedLevel > 1) {
+        // Play level up sound
+        playSound(levelUpSoundRef);
+        
+        // Show level up animation
+        setShowLevelUpAnimation(true);
+      }
     }
-  }, [score, level, calculateSpeed]);
+  }, [score, level, calculateSpeed, playSound]);
   
   // Focus name input when it appears
   const nameInputRef = useRef(null);
@@ -376,6 +462,7 @@ const SnakeGame = () => {
       if (collided) {
         setGameOver(true);
         setShowNameInput(true);
+        playSound(gameOverSoundRef);
         return;
       }
       
@@ -392,6 +479,7 @@ const SnakeGame = () => {
         // Handle food collision
         setScore(prevScore => prevScore + 1);
         setFood(generateFood());
+        playSound(eatSoundRef);
       }
       
       // Update snake state
@@ -407,7 +495,7 @@ const SnakeGame = () => {
         cancelAnimationFrame(animationFrameId);
       }
     };
-  }, [gameStarted, gameOver, paused, generateFood, gridSize]);
+  }, [gameStarted, gameOver, paused, generateFood, gridSize, playSound]);
   
   // Save high score with name
   const saveHighScore = () => {
@@ -443,33 +531,6 @@ const SnakeGame = () => {
     return rainbowColors[index % rainbowColors.length];
   };
   
-  // Handle direction change (for mobile controls)
-  const handleDirectionChange = (newDir) => {
-    console.log('Mobile control clicked:', newDir);
-    const state = gameStateRef.current;
-    
-    if (!state.gameStarted && !state.gameOver) {
-      console.log('Starting game with mobile control');
-      setGameStarted(true);
-    }
-    
-    if (state.gameOver || state.paused) {
-      console.log('Game over or paused, ignoring mobile control');
-      return;
-    }
-    
-    if (
-      (newDir === 'UP' && state.direction !== 'DOWN') ||
-      (newDir === 'DOWN' && state.direction !== 'UP') ||
-      (newDir === 'LEFT' && state.direction !== 'RIGHT') ||
-      (newDir === 'RIGHT' && state.direction !== 'LEFT')
-    ) {
-      console.log('Changing direction to', newDir);
-      setDirection(newDir);
-    } else {
-      console.log('Invalid direction change attempted:', newDir, 'current:', state.direction);
-    }
-  };
   
   // Toggle pause
   const togglePause = () => {
@@ -483,6 +544,7 @@ const SnakeGame = () => {
     if (gameStarted && !gameOver && !paused) {
       setGameOver(true);
       setShowNameInput(true);
+      playSound(gameOverSoundRef);
     }
   };
   
@@ -603,6 +665,19 @@ const SnakeGame = () => {
             }}
           />
         ))}
+        
+        {/* Level-up animation */}
+        {showLevelUpAnimation && (
+          <animated.div
+            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            style={levelUpAnimation}
+          >
+            <div className="bg-yellow-500 bg-opacity-80 text-white px-6 py-4 rounded-lg shadow-lg text-center">
+              <h2 className="text-2xl font-bold">LEVEL UP!</h2>
+              <p className="text-xl">Level {level}</p>
+            </div>
+          </animated.div>
+        )}
       </div>
       
       {/* No game controls here anymore - they are at the bottom */}
@@ -622,6 +697,12 @@ const SnakeGame = () => {
             className="px-3 sm:px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 text-sm sm:text-base"
           >
             End Game (X)
+          </button>
+          <button
+            onClick={() => setSoundEnabled(prev => !prev)}
+            className={`px-3 sm:px-4 py-2 ${soundEnabled ? 'bg-blue-500 hover:bg-blue-600' : 'bg-gray-500 hover:bg-gray-600'} text-white rounded text-sm sm:text-base`}
+          >
+            {soundEnabled ? "Sound: On" : "Sound: Off"}
           </button>
         </div>
         
