@@ -1,0 +1,576 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+const SnakeGame = () => {
+  // Game constants
+  const gridSize = 20;
+  const cellSize = 20;
+  const initialSpeed = 165; // 10% slower than original 150
+  
+  // Game state
+  const [snake, setSnake] = useState([{ x: 10, y: 10 }]);
+  const [food, setFood] = useState({ x: 5, y: 5 });
+  const [direction, setDirection] = useState('RIGHT');
+  const [gameOver, setGameOver] = useState(false);
+  const [score, setScore] = useState(0);
+  const [highScores, setHighScores] = useState([]);
+  const [gameStarted, setGameStarted] = useState(false);
+  const [speed, setSpeed] = useState(initialSpeed);
+  const [paused, setPaused] = useState(false);
+  const [level, setLevel] = useState(1);
+  const [playerName, setPlayerName] = useState('');
+  const [showNameInput, setShowNameInput] = useState(false);
+  
+  // Note: We're using CSS transitions for smooth animation instead of a separate animation speed
+  
+  // Refs to avoid dependency issues with timers and callbacks
+  const gameStateRef = useRef({
+    direction,
+    snake,
+    food,
+    gameStarted,
+    gameOver,
+    paused,
+    speed,
+    score
+  });
+  
+  // Update ref whenever state changes
+  useEffect(() => {
+    gameStateRef.current = {
+      direction,
+      snake,
+      food,
+      gameStarted,
+      gameOver,
+      paused,
+      speed,
+      score
+    };
+  }, [direction, snake, food, gameStarted, gameOver, paused, speed, score]);
+  
+  // Rainbow colors
+  const rainbowColors = [
+    '#FF0000', // Red
+    '#FF7F00', // Orange
+    '#FFFF00', // Yellow
+    '#00FF00', // Green
+    '#0000FF', // Blue
+    '#4B0082', // Indigo
+    '#9400D3'  // Violet
+  ];
+  
+  // Load high scores from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedScores = localStorage.getItem('snakeHighScores');
+      if (savedScores) {
+        const parsed = JSON.parse(savedScores);
+        // Validate the high scores format
+        if (Array.isArray(parsed) && parsed.every(item => 
+          typeof item === 'object' && 
+          item !== null && 
+          'name' in item && 
+          'score' in item && 
+          typeof item.score === 'number')) {
+          setHighScores(parsed);
+        } else {
+          // If invalid format, clear localStorage
+          localStorage.removeItem('snakeHighScores');
+          setHighScores([]);
+        }
+      } else {
+        setHighScores([]);
+      }
+    } catch (error) {
+      // If error in parsing, clear localStorage
+      localStorage.removeItem('snakeHighScores');
+      setHighScores([]);
+    }
+  }, []);
+  
+  // Generate random food position
+  const generateFood = useCallback(() => {
+    const newFood = {
+      x: Math.floor(Math.random() * gridSize),
+      y: Math.floor(Math.random() * gridSize)
+    };
+    
+    // Make sure food doesn't spawn on snake
+    const isOnSnake = gameStateRef.current.snake.some(segment => 
+      segment.x === newFood.x && segment.y === newFood.y
+    );
+    
+    if (isOnSnake && gameStateRef.current.snake.length < gridSize * gridSize - 1) {
+      return generateFood(); // Try again if food would be on snake
+    }
+    
+    return newFood;
+  }, [gridSize]);
+  
+  // Calculate speed based on level
+  const calculateSpeed = useCallback((lvl) => {
+    // Level 1: initialSpeed (165)
+    // Level 10: fastest speed (70)
+    const maxSpeedReduction = initialSpeed - 70;
+    const reduction = (lvl - 1) / 9 * maxSpeedReduction;
+    return Math.round(initialSpeed - reduction);
+  }, [initialSpeed]);
+  
+  // Handle keyboard controls
+  const handleKeyPress = useCallback((e) => {
+    console.log('Key pressed:', e.key);
+    const state = gameStateRef.current;
+    
+    // Start game on any arrow key
+    if (!state.gameStarted && !state.gameOver) {
+      console.log('Game not started, checking if arrow key');
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        console.log('Starting game with arrow key:', e.key);
+        setGameStarted(true);
+      }
+    }
+    
+    // Pause game on 'p' key
+    if (e.key === 'p' || e.key === 'P') {
+      console.log('P key pressed, toggling pause');
+      if (state.gameStarted && !state.gameOver) {
+        setPaused(prev => !prev);
+      }
+      return;
+    }
+    
+    // End game on 'x' key
+    if (e.key === 'x' || e.key === 'X') {
+      console.log('X key pressed, ending game');
+      if (state.gameStarted && !state.gameOver && !state.paused) {
+        setGameOver(true);
+        setShowNameInput(true);
+        return;
+      }
+    }
+    
+    // Skip other controls if game is not running
+    if (!state.gameStarted || state.gameOver || state.paused) {
+      console.log('Game not active, skipping controls');
+      return;
+    }
+    
+    // Process arrow keys
+    console.log('Processing direction change for key:', e.key);
+    switch (e.key) {
+      case 'ArrowUp':
+        if (state.direction !== 'DOWN') {
+          console.log('Changing direction to UP');
+          setDirection('UP');
+        }
+        break;
+      case 'ArrowDown':
+        if (state.direction !== 'UP') {
+          console.log('Changing direction to DOWN');
+          setDirection('DOWN');
+        }
+        break;
+      case 'ArrowLeft':
+        if (state.direction !== 'RIGHT') {
+          console.log('Changing direction to LEFT');
+          setDirection('LEFT');
+        }
+        break;
+      case 'ArrowRight':
+        if (state.direction !== 'LEFT') {
+          console.log('Changing direction to RIGHT');
+          setDirection('RIGHT');
+        }
+        break;
+      default:
+        break;
+    }
+  }, []);
+  
+  // Set up keyboard event listeners
+  useEffect(() => {
+    console.log('Setting up keyboard event listeners');
+    window.addEventListener('keydown', handleKeyPress);
+    return () => {
+      window.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [handleKeyPress]);
+  
+  // Update level based on score
+  useEffect(() => {
+    const newLevel = Math.floor(score / 10) + 1;
+    const clampedLevel = Math.min(newLevel, 10);
+    
+    if (clampedLevel !== level) {
+      setLevel(clampedLevel);
+      setSpeed(calculateSpeed(clampedLevel));
+    }
+  }, [score, level, calculateSpeed]);
+  
+  // Focus name input when it appears
+  const nameInputRef = useRef(null);
+  useEffect(() => {
+    if (showNameInput && nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, [showNameInput]);
+  
+  // Game loop with smooth animation
+  useEffect(() => {
+    if (!gameStarted || gameOver || paused) {
+      console.log('Game loop not starting. gameStarted:', gameStarted, 'gameOver:', gameOver, 'paused:', paused);
+      return;
+    }
+    
+    console.log('Starting game loop');
+    let lastMoveTime = Date.now();
+    let animationFrameId = null;
+    
+    const gameLoop = () => {
+      const state = gameStateRef.current;
+      const currentTime = Date.now();
+      
+      // Check if it's time for the next move
+      if (currentTime - lastMoveTime >= state.speed) {
+        console.log('Moving snake, direction:', state.direction);
+        moveSnake();
+        lastMoveTime = currentTime;
+      }
+      
+      animationFrameId = requestAnimationFrame(gameLoop);
+    };
+    
+    const moveSnake = () => {
+      const state = gameStateRef.current;
+      
+      // Create copy of the current snake
+      const newSnake = [...state.snake];
+      
+      // Create new head based on current head and direction
+      const head = { ...newSnake[0] };
+      
+      // Move head based on direction
+      switch (state.direction) {
+        case 'UP':
+          head.y = (head.y === 0) ? gridSize - 1 : head.y - 1;
+          break;
+        case 'DOWN':
+          head.y = (head.y === gridSize - 1) ? 0 : head.y + 1;
+          break;
+        case 'LEFT':
+          head.x = (head.x === 0) ? gridSize - 1 : head.x - 1;
+          break;
+        case 'RIGHT':
+          head.x = (head.x === gridSize - 1) ? 0 : head.x + 1;
+          break;
+        default:
+          break;
+      }
+      
+      // Check for collision with self
+      const collided = newSnake.some((segment, index) => {
+        return index > 0 && segment.x === head.x && segment.y === head.y;
+      });
+      
+      if (collided) {
+        setGameOver(true);
+        setShowNameInput(true);
+        return;
+      }
+      
+      // Check for food collision
+      const ateFood = head.x === state.food.x && head.y === state.food.y;
+      
+      // Create new snake with new head
+      const updatedSnake = [head, ...newSnake];
+      
+      // Remove tail if didn't eat food
+      if (!ateFood) {
+        updatedSnake.pop();
+      } else {
+        // Handle food collision
+        setScore(prevScore => prevScore + 1);
+        setFood(generateFood());
+      }
+      
+      // Update snake state
+      setSnake(updatedSnake);
+    };
+    
+    // Start the game loop
+    animationFrameId = requestAnimationFrame(gameLoop);
+    
+    // Cleanup
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+    };
+  }, [gameStarted, gameOver, paused, generateFood, gridSize]);
+  
+  // Save high score with name
+  const saveHighScore = () => {
+    const name = playerName.trim() || 'Anonymous';
+    
+    // Update high scores with name
+    const newHighScores = [...highScores, { name, score }]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+    
+    setHighScores(newHighScores);
+    localStorage.setItem('snakeHighScores', JSON.stringify(newHighScores));
+    setShowNameInput(false);
+  };
+  
+  // Reset the game
+  const resetGame = () => {
+    setSnake([{ x: 10, y: 10 }]);
+    setFood(generateFood());
+    setDirection('RIGHT');
+    setGameOver(false);
+    setScore(0);
+    setGameStarted(false);
+    setSpeed(initialSpeed);
+    setPaused(false);
+    setLevel(1);
+    setPlayerName('');
+    setShowNameInput(false);
+  };
+  
+  // Get color for snake segment based on position
+  const getSegmentColor = (index) => {
+    return rainbowColors[index % rainbowColors.length];
+  };
+  
+  // Handle direction change (for mobile controls)
+  const handleDirectionChange = (newDir) => {
+    console.log('Mobile control clicked:', newDir);
+    const state = gameStateRef.current;
+    
+    if (!state.gameStarted && !state.gameOver) {
+      console.log('Starting game with mobile control');
+      setGameStarted(true);
+    }
+    
+    if (state.gameOver || state.paused) {
+      console.log('Game over or paused, ignoring mobile control');
+      return;
+    }
+    
+    if (
+      (newDir === 'UP' && state.direction !== 'DOWN') ||
+      (newDir === 'DOWN' && state.direction !== 'UP') ||
+      (newDir === 'LEFT' && state.direction !== 'RIGHT') ||
+      (newDir === 'RIGHT' && state.direction !== 'LEFT')
+    ) {
+      console.log('Changing direction to', newDir);
+      setDirection(newDir);
+    } else {
+      console.log('Invalid direction change attempted:', newDir, 'current:', state.direction);
+    }
+  };
+  
+  // Toggle pause
+  const togglePause = () => {
+    if (gameStarted && !gameOver) {
+      setPaused(prev => !prev);
+    }
+  };
+  
+  // End game manually
+  const endGame = () => {
+    if (gameStarted && !gameOver && !paused) {
+      setGameOver(true);
+      setShowNameInput(true);
+    }
+  };
+  
+  // Smooth rendering with CSS transitions for snake segments
+  const getTransitionStyle = () => {
+    // Calculate transition duration based on game speed
+    // Faster snake = shorter transition
+    const transitionDuration = `${speed * 0.8}ms`;
+    return {
+      transition: `left ${transitionDuration} linear, top ${transitionDuration} linear`
+    };
+  };
+  
+  return (
+    <div className="flex flex-col items-center justify-center p-4 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-4">Rainbow Snake Game</h1>
+      
+      <div className="mb-4 flex justify-between w-full max-w-md">
+        <p className="text-xl">Score: {score}</p>
+        <p className="text-xl">Level: {level}</p>
+      </div>
+      
+      <div 
+        className="relative border-2 border-gray-800 bg-black"
+        style={{ 
+          width: gridSize * cellSize, 
+          height: gridSize * cellSize 
+        }}
+      >
+        {/* Game start overlay */}
+        {!gameStarted && !gameOver && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+            <div className="text-white text-center">
+              <p className="text-xl mb-4">Press any arrow key to start</p>
+              <p>Use arrow keys to control the snake</p>
+              <p className="mt-2">Press P to pause, X to end game</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Pause overlay */}
+        {paused && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+            <div className="text-white text-center">
+              <p className="text-xl mb-4">Game Paused</p>
+              <p>Press P to resume</p>
+            </div>
+          </div>
+        )}
+        
+        {/* Game over overlay with name input */}
+        {gameOver && (
+          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+            <div className="text-white text-center">
+              <p className="text-xl mb-2">Game Over!</p>
+              <p className="mb-4">Your score: {score}</p>
+              
+              {showNameInput ? (
+                <div className="mb-4">
+                  <p className="mb-2">Enter your name:</p>
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    className="px-2 py-1 text-black w-full mb-2"
+                    maxLength={15}
+                    placeholder="Your Name"
+                  />
+                  <button 
+                    onClick={saveHighScore}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 w-full"
+                  >
+                    Save Score
+                  </button>
+                </div>
+              ) : (
+                <button 
+                  onClick={resetGame}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                >
+                  Play Again
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Food */}
+        <div 
+          className="absolute rounded-full bg-red-500"
+          style={{ 
+            width: cellSize - 2, 
+            height: cellSize - 2, 
+            left: food.x * cellSize + 1, 
+            top: food.y * cellSize + 1 
+          }}
+        />
+        
+        {/* Snake */}
+        {snake.map((segment, index) => (
+          <div 
+            key={index}
+            className="absolute rounded"
+            style={{ 
+              width: cellSize - 2, 
+              height: cellSize - 2, 
+              left: segment.x * cellSize + 1, 
+              top: segment.y * cellSize + 1,
+              backgroundColor: getSegmentColor(index),
+              ...getTransitionStyle()
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* No game controls here anymore - they are at the bottom */}
+      
+      {/* High Scores */}
+      <div className="mt-8 w-full max-w-md">
+        <h2 className="text-xl font-bold mb-2">High Scores</h2>
+        <div className="bg-gray-100 p-4 rounded">
+          {highScores.length > 0 ? (
+            <ol className="list-decimal list-inside">
+              {highScores.map((highScore, index) => (
+                <li key={index} className="mb-1">
+                  {highScore.name}: {highScore.score} {highScore.score === 1 ? 'point' : 'points'}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No high scores yet. Play to set a record!</p>
+          )}
+        </div>
+      </div>
+      
+      {/* Controls for both desktop and mobile */}
+      <div className="mt-6">
+        {/* Game action buttons */}
+        <div className="flex justify-center space-x-4 mb-4">
+          <button 
+            onClick={togglePause}
+            className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+          >
+            {paused ? "Resume (P)" : "Pause (P)"}
+          </button>
+          <button 
+            onClick={endGame}
+            className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+          >
+            End Game (X)
+          </button>
+        </div>
+        
+        {/* Direction controls (for all devices) */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="col-span-3 flex justify-center mb-2">
+            <button 
+              onClick={() => handleDirectionChange('UP')}
+              className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+            >
+              ▲
+            </button>
+          </div>
+          <button 
+            onClick={() => handleDirectionChange('LEFT')}
+            className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+          >
+            ◀
+          </button>
+          <div />
+          <button 
+            onClick={() => handleDirectionChange('RIGHT')}
+            className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+          >
+            ▶
+          </button>
+          <div className="col-span-3 flex justify-center mt-2">
+            <button 
+              onClick={() => handleDirectionChange('DOWN')}
+              className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center text-2xl"
+            >
+              ▼
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SnakeGame;
