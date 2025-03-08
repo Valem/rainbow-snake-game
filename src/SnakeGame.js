@@ -112,6 +112,14 @@ const SnakeGame = () => {
     }
   });
   
+  // Snake animation for start screen - gentle bouncing animation
+  const snakeAnimation = useSpring({
+    from: { transform: 'scale(0.95) translateY(5px)' },
+    to: { transform: 'scale(1.05) translateY(-5px)' },
+    config: { tension: 120, friction: 14 },
+    loop: { reverse: true, delay: 400 }
+  });
+  
   // Note: We're using CSS transitions for smooth animation instead of a separate animation speed
   
   // Refs to avoid dependency issues with timers and callbacks
@@ -609,20 +617,72 @@ const SnakeGame = () => {
       
       <div
         id="game-area"
-        className="relative border-2 border-gray-800 bg-black"
+        className="relative border-2 border-gray-800"
         style={{
           width: gridSize * responsiveCellSize,
-          height: gridSize * responsiveCellSize
+          height: gridSize * responsiveCellSize,
+          background: 'linear-gradient(135deg, #e0f7fa 0%, #d1c4e9 100%)'
         }}
       >
-        {/* Game start overlay */}
+        {/* Game start overlay with cute snake */}
         {!gameStarted && !gameOver && (
-          <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
-            <div className="text-white text-center">
-              <p className="text-xl mb-4">Press any arrow key or button to start</p>
-              <p>Use arrow keys or buttons to control the snake</p>
-              <p className="mt-2">On mobile, you can also swipe to change direction</p>
-              <p className="mt-2">Press P to pause, X to end game</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-between">
+            {/* Cute snake SVG animation in the center */}
+            <div className="flex-grow flex items-center justify-center w-full" style={{ height: "80%" }}>
+              <animated.div style={snakeAnimation} className="w-full max-w-md">
+                <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                  {/* Snake body with wavy pattern */}
+                  <path
+                    d="M70,150 C120,100 170,200 220,150 C270,100 320,200 350,150"
+                    fill="#4ade80"
+                    stroke="#22c55e"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                  />
+                  
+                  {/* Decorative spots on snake body */}
+                  <circle cx="100" cy="130" r="7" fill="#86efac" />
+                  <circle cx="140" cy="170" r="6" fill="#86efac" />
+                  <circle cx="190" cy="140" r="7" fill="#86efac" />
+                  <circle cx="250" cy="170" r="6" fill="#86efac" />
+                  <circle cx="310" cy="140" r="5" fill="#86efac" />
+                  
+                  {/* Snake head */}
+                  <ellipse cx="350" cy="150" rx="30" ry="25" fill="#22c55e" />
+                  
+                  {/* Snake eyes - bigger and more cartoon-like */}
+                  <circle cx="365" cy="140" r="10" fill="white" />
+                  <circle cx="365" cy="140" r="5" fill="black" />
+                  <circle cx="335" cy="140" r="10" fill="white" />
+                  <circle cx="335" cy="140" r="5" fill="black" />
+                  
+                  {/* Snake smile - bigger and more friendly */}
+                  <path
+                    d="M330,165 Q350,180 370,165"
+                    fill="none"
+                    stroke="black"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                  
+                  {/* Snake tongue */}
+                  <path
+                    d="M350,175 L365,185 L360,175 L370,165"
+                    fill="none"
+                    stroke="#ff6b6b"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              </animated.div>
+            </div>
+            
+            {/* Instructions at the bottom with very light semi-transparent background */}
+            <div className="text-black text-center p-3 mb-12 bg-white bg-opacity-60 w-full rounded-b border-t border-gray-300 shadow-inner">
+              <p className="text-xl font-medium mb-1">Press any arrow key or button to start</p>
+              <p className="text-sm">Use arrow keys or buttons to control the snake</p>
+              <p className="text-sm mt-1">On mobile, you can also swipe to change direction</p>
+              <p className="text-sm mt-1">Press P to pause, X to end game</p>
             </div>
           </div>
         )}
@@ -675,19 +735,21 @@ const SnakeGame = () => {
           </div>
         )}
         
-        {/* Food */}
-        <div
-          className="absolute rounded-full bg-red-500"
-          style={{
-            width: responsiveCellSize - 2,
-            height: responsiveCellSize - 2,
-            left: food.x * responsiveCellSize + 1,
-            top: food.y * responsiveCellSize + 1
-          }}
-        />
+        {/* Food - only visible when game has started */}
+        {gameStarted && (
+          <div
+            className="absolute rounded-full bg-red-500"
+            style={{
+              width: responsiveCellSize - 2,
+              height: responsiveCellSize - 2,
+              left: food.x * responsiveCellSize + 1,
+              top: food.y * responsiveCellSize + 1
+            }}
+          />
+        )}
         
-        {/* Snake */}
-        {snake.map((segment, index) => (
+        {/* Snake - only visible when game has started */}
+        {gameStarted && snake.map((segment, index) => (
           <div
             key={index}
             className="absolute rounded"
